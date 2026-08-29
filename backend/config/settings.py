@@ -117,21 +117,40 @@ ASGI_APPLICATION = 'config.asgi.application'
 # ─────────────────────────────────────────────────────────────────────────────
 # Database Configuration (PostgreSQL for Production / Supabase, SQLite for Local)
 # ─────────────────────────────────────────────────────────────────────────────
-DATABASE_URL = os.getenv('DATABASE_URL')
+DATABASE_URL = os.getenv('DATABASE_URL', '').strip()
 USE_SQLITE = os.getenv('USE_SQLITE', 'False').lower() in ('true', '1')
 
-if DATABASE_URL and not USE_SQLITE:
+# Validate that DATABASE_URL uses a valid database scheme (postgresql:// or postgres://)
+is_valid_db_url = DATABASE_URL and (
+    DATABASE_URL.startswith('postgresql://') or 
+    DATABASE_URL.startswith('postgres://') or 
+    DATABASE_URL.startswith('pgsql://')
+)
+
+if is_valid_db_url and not USE_SQLITE:
     import dj_database_url
-    DATABASES = {
-        'default': dj_database_url.config(
-            default=DATABASE_URL,
-            conn_max_age=600,
-            conn_health_checks=True,
-            engine='django.db.backends.postgresql',
-        )
-    }
+    if DATABASE_URL.startswith('postgres://'):
+        DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+    
+    try:
+        DATABASES = {
+            'default': dj_database_url.config(
+                default=DATABASE_URL,
+                conn_max_age=600,
+                conn_health_checks=True,
+                engine='django.db.backends.postgresql',
+            )
+        }
+    except Exception as e:
+        print(f"Warning: Failed to parse DATABASE_URL ({e}). Falling back to SQLite.")
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': BASE_DIR / 'db.sqlite3',
+            }
+        }
 else:
-    # Local development ONLY - SQLite database fallback
+    # Fallback to local SQLite database if DATABASE_URL is empty, invalid, or USE_SQLITE is set
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
