@@ -3,11 +3,11 @@ import { emitRealtimeEvent } from './utils/notificationSystem';
 
 // frontend/src/api.js - Robust Base URL Sanitization
 const getSanitizedBaseUrl = () => {
-  let raw = (import.meta.env.VITE_API_URL || '').trim();
+  let raw = (import.meta.env.VITE_API_URL || 'https://setu-backend1.onrender.com').trim();
   // Strip trailing slashes and redundant /api suffix so endpoints with /api/ prefix don't duplicate
   while (raw.endsWith('/')) { raw = raw.slice(0, -1); }
   if (raw.endsWith('/api')) { raw = raw.slice(0, -4); }
-  return raw; // Returns "https://setu-8.onrender.com" or "" (for relative proxy)
+  return raw;
 };
 
 export const API_BASE_URL = getSanitizedBaseUrl();
