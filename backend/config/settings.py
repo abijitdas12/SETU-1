@@ -1,11 +1,13 @@
 """
 Django settings for SETU backend project.
+Prepared for free-tier cloud deployment (Render + Vercel + Supabase PostgreSQL).
 """
 
 from pathlib import Path
 import os
 import sys
 from datetime import timedelta
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -22,31 +24,36 @@ except ImportError:
 
 from django.core.exceptions import ImproperlyConfigured
 
-# backend/config/settings.py - Secure Production DEBUG Default
+# ─────────────────────────────────────────────────────────────────────────────
+# Environment Detection & Production DEBUG Default
+# ─────────────────────────────────────────────────────────────────────────────
 IS_RENDER = os.getenv('RENDER') == 'true' or 'RENDER' in os.environ
 IS_VERCEL = os.getenv('VERCEL') == '1' or 'VERCEL' in os.environ
 IS_PRODUCTION = IS_RENDER or IS_VERCEL or os.getenv('ENVIRONMENT') == 'production'
 
-# Default to False in production; allow True only if explicitly set in development
 if IS_PRODUCTION:
     DEBUG = os.getenv('DEBUG', 'False').lower() in ('true', '1', 'yes')
 else:
     DEBUG = os.getenv('DEBUG', 'True').lower() in ('true', '1', 'yes')
 
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-setu-production-fallback-key-98127391823')
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-setu-production-fallback-key-98127391823' if DEBUG else None)
+if not SECRET_KEY:
+    raise ImproperlyConfigured("SECRET_KEY environment variable must be set in production.")
+
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-# Host Header Validation (Permit all Render, Vercel, and API Checker hosts)
+# ─────────────────────────────────────────────────────────────────────────────
+# Host Header Validation (ALLOWED_HOSTS)
+# ─────────────────────────────────────────────────────────────────────────────
 allowed_hosts_env = os.getenv('ALLOWED_HOSTS')
 if allowed_hosts_env:
     ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_env.split(',') if h.strip()]
-    if '*' not in ALLOWED_HOSTS:
-        ALLOWED_HOSTS.append('*')
 else:
-    ALLOWED_HOSTS = ['*']
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]', '.onrender.com'] if DEBUG else ['.onrender.com']
 
-
+# ─────────────────────────────────────────────────────────────────────────────
 # Application definition
+# ─────────────────────────────────────────────────────────────────────────────
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -109,7 +116,9 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 ASGI_APPLICATION = 'config.asgi.application'
 
-# backend/config/settings.py - Production PostgreSQL Database Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+# Database Configuration (PostgreSQL for Production / Supabase, SQLite for Local)
+# ─────────────────────────────────────────────────────────────────────────────
 DATABASE_URL = os.getenv('DATABASE_URL')
 USE_SQLITE = os.getenv('USE_SQLITE', 'False').lower() in ('true', '1')
 
@@ -124,7 +133,7 @@ if DATABASE_URL and not USE_SQLITE:
         )
     }
 else:
-    # Local development ONLY - never use /tmp/db.sqlite3 in production
+    # Local development ONLY - SQLite database fallback
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
@@ -186,11 +195,12 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
-# CORS Configuration (SEC-008: Whitelist trusted origins, prevent wildcard Access-Control-Allow-Origin: *)
-CORS_ALLOW_ALL_ORIGINS = False
+# ─────────────────────────────────────────────────────────────────────────────
+# CORS Configuration (Production Restricted Origins)
+# ─────────────────────────────────────────────────────────────────────────────
+CORS_ALLOW_ALL_ORIGINS = os.getenv('CORS_ALLOW_ALL_ORIGINS', 'False').lower() in ('true', '1')
 CORS_ALLOW_CREDENTIALS = True
 
-# Whitelist Vite dev frontends and local dev ports
 _DEFAULT_ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'http://localhost:5173',
@@ -198,10 +208,6 @@ _DEFAULT_ALLOWED_ORIGINS = [
     'http://127.0.0.1:3000',
     'http://127.0.0.1:5173',
     'http://127.0.0.1:5174',
-    'https://setulive.vercel.app',
-    'https://setu-frontend-five.vercel.app',
-    'https://setu-frontend.onrender.com',
-    'https://setu-9.onrender.com',
 ]
 
 cors_origins_env = os.getenv('CORS_ALLOWED_ORIGINS')
@@ -213,10 +219,7 @@ if cors_origins_env:
 else:
     CORS_ALLOWED_ORIGINS = _DEFAULT_ALLOWED_ORIGINS
 
-CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOW_CREDENTIALS = True
-
-# Permit all Vercel production & preview deployment subdomains securely via regex
+# Permit all Vercel deployment subdomains and Render hosts securely via regex
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https://.*\.vercel\.app$",
     r"^https://.*\.onrender\.com$",
@@ -224,12 +227,26 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^http://127\.0\.0\.1:[0-9]+$",
 ]
 
+# ─────────────────────────────────────────────────────────────────────────────
 # CSRF Trusted Origins
-csrf_origins_env = os.getenv('CSRF_TRUSTED_ORIGINS', 'https://setu-frontend-cdgn.onrender.com')
-CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in csrf_origins_env.split(',') if origin.strip()]
+# ─────────────────────────────────────────────────────────────────────────────
+_DEFAULT_CSRF_ORIGINS = [
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:5173',
+]
+csrf_origins_env = os.getenv('CSRF_TRUSTED_ORIGINS')
+if csrf_origins_env:
+    CSRF_TRUSTED_ORIGINS = list(set(
+        [origin.strip() for origin in csrf_origins_env.split(',') if origin.strip()]
+        + _DEFAULT_CSRF_ORIGINS
+    ))
+else:
+    CSRF_TRUSTED_ORIGINS = _DEFAULT_CSRF_ORIGINS
 
 # ─────────────────────────────────────────────────────────────────────────────
-# HTTP Security Response Headers (SEC-009)
+# HTTP Security Response Headers
 # ─────────────────────────────────────────────────────────────────────────────
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
