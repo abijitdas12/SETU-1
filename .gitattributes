@@ -1,0 +1,4 @@
+# Force LF line endings for web asset files to preserve multiline template string syntax
+*.js text eol=lf
+*.css text eol=lf
+*.html text eol=lf
