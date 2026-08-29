@@ -24,10 +24,11 @@ import argparse
 from datetime import datetime, timezone
 from typing import Tuple, List, Dict, Any, Optional
 
-# Lazy imports - only load when actually used, not during Django startup
-# This prevents memory issues on serverless/free tier platforms
-numpy = None
-GradientBoostingClassifier = None
+import numpy as np
+try:
+    from sklearn.ensemble import GradientBoostingClassifier
+except ImportError:
+    GradientBoostingClassifier = None
 RandomForestClassifier = None
 Pipeline = None
 StandardScaler = None
