@@ -49,7 +49,7 @@ allowed_hosts_env = os.getenv('ALLOWED_HOSTS')
 if allowed_hosts_env:
     ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_env.split(',') if h.strip()]
 else:
-    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]', '.onrender.com'] if DEBUG else ['.onrender.com']
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]', '.onrender.com', '.koyeb.app', '.up.railway.app', '.zeabur.app', '.vercel.app']
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Application definition
@@ -208,6 +208,7 @@ _DEFAULT_ALLOWED_ORIGINS = [
     'http://127.0.0.1:3000',
     'http://127.0.0.1:5173',
     'http://127.0.0.1:5174',
+    'https://setulive.vercel.app',
 ]
 
 cors_origins_env = os.getenv('CORS_ALLOWED_ORIGINS')
@@ -219,10 +220,13 @@ if cors_origins_env:
 else:
     CORS_ALLOWED_ORIGINS = _DEFAULT_ALLOWED_ORIGINS
 
-# Permit all Vercel deployment subdomains and Render hosts securely via regex
+# Permit all Vercel, Render, Koyeb, Railway, and Zeabur deployment subdomains securely via regex
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https://.*\.vercel\.app$",
     r"^https://.*\.onrender\.com$",
+    r"^https://.*\.koyeb\.app$",
+    r"^https://.*\.up\.railway\.app$",
+    r"^https://.*\.zeabur\.app$",
     r"^http://localhost:[0-9]+$",
     r"^http://127\.0\.0\.1:[0-9]+$",
 ]
@@ -235,6 +239,7 @@ _DEFAULT_CSRF_ORIGINS = [
     'http://localhost:5173',
     'http://127.0.0.1:3000',
     'http://127.0.0.1:5173',
+    'https://setulive.vercel.app',
 ]
 csrf_origins_env = os.getenv('CSRF_TRUSTED_ORIGINS')
 if csrf_origins_env:
